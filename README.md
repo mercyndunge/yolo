@@ -13,3 +13,8 @@ Install the docker engine here:
 
 ## How to run the app
 Use vagrant up --provison command
+
+## Docker Setup
+1. Install Docker
+2. Run `docker-compose up --build`
+3. Access frontend at http://172.20.0.4:3000/
