@@ -1,9 +1,33 @@
----
-- name: Ansible playbook to dockerize and run yolo e-commerce app using ansible
+- name: Configure Vagrant Machine
   hosts: all
-  become: true
-  roles: 
-    - frontend-deployment
-    - setup-mongodb   
-    - backend-deployment
-    
+  become: yes
+  tasks:
+    - name: Update and upgrade apt packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install required packages
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+          - git
+        state: present
+
+    - name: Add vagrant user to docker group
+      user:
+        name: vagrant
+        groups: docker
+        append: yes
+
+    - name: Clone the application repository
+      git:
+        repo: https://github.com/mercyndunge/yolo.git
+        dest: /home/vagrant/yolo
+        force: yes
+
+    - name: Start Docker Compose
+      command: docker-compose up -d
+      args:
+        chdir: /home/vagrant/yolo
