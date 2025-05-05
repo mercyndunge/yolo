@@ -1,0 +1,8 @@
+project_repo: https://github.com/mercyndunge/yolo.git
+app_path: /home/vagrant/yolo
+frontend_container_name: yolo_frontend
+backend_container_name: yolo_backend
+mongodb_container_name: yolo_mongodb
+mongodb_port: 27017
+frontend_port: 3000
+backend_port: 5000

@@ -1,75 +1,87 @@
-# Explanation of Implementation
+## Project Overview
 
-This document explains the reason behind the implementation of the containerized e-commerce application.
+This project automates the configuration and deployment of a containerized e-commerce web application using Ansible on a Vagrant-provisioned Ubuntu server. The application includes three major components: a frontend, a backend, and a MongoDB database. Each component is containerized and managed using Docker.
 
----
-
-## 1. Choice of Base Images
-- **Frontend**: `node:14-slim` was chosen as the base image for the frontend because it is lightweight and optimized for Node.js applications, reducing the overall image size.
-- **Backend**: `node:14-slim` was also used for the backend for the same reasons as the frontend.
-- **Frontend Serving**: `nginx:alpine` was used to serve the React build files because it is a lightweight and efficient web server.
-- **Database**: The official `mongo:5.0` image was used for MongoDB as it is maintained and optimized by the MongoDB team.
 
 ---
 
-## 2. Dockerfile Directives
-### **Frontend**
-- `COPY`: Copies the application code into the container.
-- `RUN`: Installs dependencies and builds the React application.
-- `CMD`: Starts the Nginx server to serve the built files.
+## Why This Order of Execution?
 
-### **Backend**
-- `COPY`: Copies the application code into the container.
-- `RUN`: Installs dependencies for the Node.js backend.
-- `CMD`: Starts the backend server using `npm start`.
+The Ansible playbook `main.yml` was designed to follow a logical, dependency-aware sequence of tasks to ensure a smooth deployment process:
 
-### **Database**
-- The official MongoDB image was used without modification, as it already provides the necessary functionality.
+1. **Install System Dependencies and Docker**  
+   Before any containers can be deployed, Docker and its dependencies must be available on the system. This is done in the `common` role.
 
----
+2. **Clone the Project Repository**  
+   The application source code is cloned into the VM so the Docker build context is available for container setup.
 
-## 3. Docker-Compose Networking
-- A custom bridge network (`app-net`) was created to allow the containers to communicate with each other.
-- The network uses the following configuration:
-  - **Subnet**: `172.20.0.0/16`
-  - **IP Range**: `172.20.0.0/16`
-- This ensures that the frontend, backend, and database can communicate seamlessly.
+3. **Start MongoDB Container**  
+   The backend service depends on MongoDB. To ensure the backend has a working database connection, the MongoDB container is started first.
+
+4. **Start Backend Container**  
+   After the database is running, the backend can be deployed and connected to the MongoDB service.
+
+5. **Start Frontend Container**  
+   Finally, the frontend is started. It connects to the backend to fetch and display product data.
+
+Each component is implemented as a separate Ansible role to ensure modularity, reusability, and clear separation of responsibilities.
 
 ---
 
-## 4. Docker-Compose Volume Definition
-- A volume (`app-mongo-data`) was defined for the MongoDB container to persist data.
-- This ensures that data (e.g., added products) is not lost when the MongoDB container is restarted.
+## Roles Explained
+
+### 1. `common`
+- **Purpose**: Prepares the system by installing Docker and essential dependencies.
+- **Modules Used**:
+  - `apt`: To install required packages.
+  - `docker_container`, `docker_image`: To manage Docker after installation.
+
+### 2. `mongodb`
+- **Purpose**: Starts a MongoDB container for data storage.
+- **Modules Used**:
+  - `docker_container`: Launches the MongoDB container.
+- **Notes**: Ensure volume mounting is used for persistence (can be improved).
+
+### 3. `backend`
+- **Purpose**: Deploys the backend server as a containerized service.
+- **Modules Used**:
+  - `docker_container`: Builds and runs the backend container.
+- **Dependencies**: Must run after MongoDB is up.
+
+### 4. `frontend`
+- **Purpose**: Launches the frontend user interface for the e-commerce platform.
+- **Modules Used**:
+  - `docker_container`: Builds and runs the frontend container.
 
 ---
 
-## 5. Git Workflow
-- **Fork and Clone**: The repository was forked and cloned to the local machine.
-- **Commits**: Descriptive commit messages were used to track progress 
-- **Push**: Changes were pushed to the GitHub repository for version control and submission.
+## Ansible Concepts Used
+
+### Roles
+Roles are used to split the project into manageable parts (frontend, backend, database, common setup).
+
+### Tasks
+Each role includes a `tasks/main.yml` file where the actual steps are defined using Ansible modules.
+
+### Variables (To Improve)
+Currently, variables are defined inline in tasks. This could be improved by using `vars/` folders or global `group_vars`/`host_vars` to make the playbook more dynamic.
+
+### Tags & Blocks (To Improve)
+The current playbook does not use `tags` or `blocks`. These would be helpful for:
+- Running specific parts of the playbook
+- Better debugging
+- Task grouping
 
 ---
 
-## 6. Debugging Measures
-- **Blank Page Issue**: Fixed by ensuring the backend API was correctly connected to MongoDB and returning proper responses.
-- **Port Conflicts**: Resolved by ensuring no other services were using the same ports (e.g., `27017` for MongoDB).
-- **Logs**: Used `docker logs` to debug issues in the frontend, backend, and database containers.
+## Additional Notes
 
----
+- **Testing Add Product Functionality**: Once the application is deployed, navigate to the frontend URL and use the form to test adding a product. The backend should persist the product data in MongoDB.
+- **MongoDB Persistence**: Consider adding Docker volumes in the `mongodb` role to ensure data persists across container restarts (e.g., mount `/data/db`).
 
-## 7. Best Practices
-- **Image Tagging**: Semantic versioning (e.g., `v1.0.0`) was used for image tags to ensure clarity and version control.
-- **Lightweight Images**: Slim and Alpine base images were used to minimize image size.
-- **Persistent Data**: A volume was used for MongoDB to ensure data persistence.
 
----
-
-### 8. Screenshot of DockerHub Images
-
-Below are screenshots of the DockerHub repository showing the images and their tags:
-
-#### **Frontend Image**
-![Frontend DockerHub Image](screenshots/client-dockerhub.png)
-
-#### **Backend Image**
-![Backend DockerHub Image](screenshots/backend-dockerhub.png)
+This project demonstrates the practical use of Ansible to automate the deployment of a containerized application. It aligns with modern DevOps practices and can be further improved by:
+- Adding variable files
+- Using blocks and tags
+- Implementing persistent MongoDB storage
+- Documenting or integrating optional Terraform support
