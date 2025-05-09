@@ -1,16 +1,20 @@
 ---
-- name: Pull image from repository
+- name: Pull backend image from Docker Hub
   docker_image:
-    name: brianbwire/brian-yolo-backend:v1.0.0
+    name: 22225/brian-yolo-backend:v1.0.0
     source: pull
+  tags: image
 
-- name: Create Node.js Backend Container
+- name: Run backend container
   docker_container:
     name: brian-yolo-backend
     image: 22225/brian-yolo-backend:v1.0.0
-    networks:
-      - name: app-net
+    state: started
+    restart_policy: always
+    command: "npm start"
     ports:
       - "5000:5000"
-    command: "npm start"
+    networks:
+      - name: app-net
   become: yes
+  tags: container
