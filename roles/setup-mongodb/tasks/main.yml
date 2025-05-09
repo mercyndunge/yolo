@@ -1,8 +1,17 @@
 ---
-- name: Run MongoDB Container
+- name: Ensure Docker network 'app-net' exists
+  docker_network:
+    name: app-net
+    state: present
+  tags:
+    - network
+
+- name: Run MongoDB container
   docker_container:
     name: app-mongo
     image: mongo
+    state: started
+    restart_policy: always
     ports:
       - '27017:27017'
     volumes:
