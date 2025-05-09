@@ -1,16 +1,25 @@
 ---
-- name: Pull image from repository
+- name: Create Docker network
+  docker_network:
+    name: app-net
+    state: present
+  tags: network
+
+- name: Pull frontend image from Docker Hub
   docker_image:
     name: 22225/brian-yolo-client:v1.0.0
     source: pull
+  tags: image
 
-- name: Create Node.js Backend Container
+- name: Run frontend container
   docker_container:
-    name: brian-yolo-backend
-    image: 22225/brian-yolo-backend:v1.0.0
+    name: brian-yolo-frontend
+    image: 22225/brian-yolo-client:v1.0.0
+    state: started
+    restart_policy: always
+    ports:
+      - "3000:3000"
     networks:
       - name: app-net
-    ports:
-      - "5000:5000"
-    command: "npm start"
   become: yes
+  tags: container
