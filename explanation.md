@@ -1,87 +1,46 @@
-## Project Overview
+# Explanation of Implementation Choices
 
-This project automates the configuration and deployment of a containerized e-commerce web application using Ansible on a Vagrant-provisioned Ubuntu server. The application includes three major components: a frontend, a backend, and a MongoDB database. Each component is containerized and managed using Docker.
+## 1. Choice of Kubernetes Objects Used for Deployment
 
+I used Deployment objects for both the frontend and backend services. Deployments are suitable for stateless applications like my React frontend and Node.js/Express backend, as they provide easy rollout/rollback and automatic scaling.
 
----
+I didn't use StatefulSets, as my application does not require persistent identities, ordered deployment, or stable storage across pod restarts. No stateful database (like MongoDB) was deployed directly inside the cluster.
 
-## Why This Order of Execution?
+## 2. Method Used to Expose Pods to Internet Traffic
 
-The Ansible playbook `main.yml` was designed to follow a logical, dependency-aware sequence of tasks to ensure a smooth deployment process:
+I used **LoadBalancer Services** to expose both frontend and backend pods to external traffic. This type of service is appropriate for cloud environments (GKE), as it provisions an external IP address and forwards traffic to the pods internally.
 
-1. **Install System Dependencies and Docker**  
-   Before any containers can be deployed, Docker and its dependencies must be available on the system. This is done in the `common` role.
+Example:
+- Frontend: `http://34.60.73.207:3000/`
 
-2. **Clone the Project Repository**  
-   The application source code is cloned into the VM so the Docker build context is available for container setup.
+## 3. Use-of or Lack-of Persistent Storage
 
-3. **Start MongoDB Container**  
-   The backend service depends on MongoDB. To ensure the backend has a working database connection, the MongoDB container is started first.
+I did not implement persistent storage because:
+- My app architecture does not include a database within the cluster.
+- MongoDB (if used) would ideally be provisioned using a managed service (e.g., MongoDB Atlas), and accessed remotely.
+- The frontend and backend containers do not require data persistence between restarts.
 
-4. **Start Backend Container**  
-   After the database is running, the backend can be deployed and connected to the MongoDB service.
+## 4. Git Workflow Used
 
-5. **Start Frontend Container**  
-   Finally, the frontend is started. It connects to the backend to fetch and display product data.
+- All work was done on the `main` branch for simplicity.
+- After local testing and verification, files were committed with descriptive messages and pushed to GitHub.
+- Docker image tags (`v1.0.0`, `v1.0.1`) reflect iterative development and are referenced in Kubernetes manifests for traceability.
 
-Each component is implemented as a separate Ansible role to ensure modularity, reusability, and clear separation of responsibilities.
+## 5. Application Accessibility and Debugging Measures
 
----
+The application is successfully running and accessible via:
+- Frontend: http://34.60.73.207:3000/
+- Backend:  http://34.70.235.102:5000/
 
-## Roles Explained
+Debugging measures taken:
+- Inspected logs using `kubectl logs`
+- Used `kubectl describe` to understand pod failures
+- Rebuilt Docker images with corrected entrypoints and environment fixes
 
-### 1. `common`
-- **Purpose**: Prepares the system by installing Docker and essential dependencies.
-- **Modules Used**:
-  - `apt`: To install required packages.
-  - `docker_container`, `docker_image`: To manage Docker after installation.
+## 6. Good Practices Applied
 
-### 2. `mongodb`
-- **Purpose**: Starts a MongoDB container for data storage.
-- **Modules Used**:
-  - `docker_container`: Launches the MongoDB container.
-- **Notes**: Ensure volume mounting is used for persistence (can be improved).
-
-### 3. `backend`
-- **Purpose**: Deploys the backend server as a containerized service.
-- **Modules Used**:
-  - `docker_container`: Builds and runs the backend container.
-- **Dependencies**: Must run after MongoDB is up.
-
-### 4. `frontend`
-- **Purpose**: Launches the frontend user interface for the e-commerce platform.
-- **Modules Used**:
-  - `docker_container`: Builds and runs the frontend container.
-
----
-
-## Ansible Concepts Used
-
-### Roles
-Roles are used to split the project into manageable parts (frontend, backend, database, common setup).
-
-### Tasks
-Each role includes a `tasks/main.yml` file where the actual steps are defined using Ansible modules.
-
-### Variables (To Improve)
-Currently, variables are defined inline in tasks. This could be improved by using `vars/` folders or global `group_vars`/`host_vars` to make the playbook more dynamic.
-
-### Tags & Blocks (To Improve)
-The current playbook does not use `tags` or `blocks`. These would be helpful for:
-- Running specific parts of the playbook
-- Better debugging
-- Task grouping
-
----
-
-## Additional Notes
-
-- **Testing Add Product Functionality**: Once the application is deployed, navigate to the frontend URL and use the form to test adding a product. The backend should persist the product data in MongoDB.
-- **MongoDB Persistence**: Consider adding Docker volumes in the `mongodb` role to ensure data persists across container restarts (e.g., mount `/data/db`).
-
-
-This project demonstrates the practical use of Ansible to automate the deployment of a containerized application. It aligns with modern DevOps practices and can be further improved by:
-- Adding variable files
-- Using blocks and tags
-- Implementing persistent MongoDB storage
-- Documenting or integrating optional Terraform support
+- **Image naming:** I followed semantic versioning in image tags (`v1.0.0`, `v1.0.1`) for clarity and rollback support.
+- **Custom image repo:** Pushed images to Docker Hub under my personal namespace (`22225/brian-yolo-client).
+- **Clear folder structure:** YAML manifests organized under `manifests/`.
+- **Proper resource limits:** CPU and memory requests/limits were defined to prevent overuse.
+- **Environment isolation:** Used cloud-native LoadBalancer and did not hard-code internal service IPs.
